@@ -6,6 +6,15 @@
 // Road 3: D8  -> R, D9  -> Y, D10 -> G
 // Road 4: D11 -> R, D12 -> Y, D13 -> G
 //
+// Optional HC-SR04 fallback sensors, using one Arduino pin per sensor:
+// Road 1 sensor signal: A0
+// Road 2 sensor signal: A1
+// Road 3 sensor signal: A2
+// Road 4 sensor signal: A3
+//
+// In fallback mode, connect TRIG and ECHO to the same signal line.
+// Prefer putting a 1k-4.7k resistor between ECHO and that signal line.
+//
 // Serial protocol from AI:
 //   LEVELS,r1,r2,r3,r4
 //   BLOCKED,0  -> intersection clear
@@ -24,6 +33,7 @@ const byte ROAD_COUNT = 4;
 const byte R_PINS[ROAD_COUNT] = {2, 5, 8, 11};
 const byte Y_PINS[ROAD_COUNT] = {3, 6, 9, 12};
 const byte G_PINS[ROAD_COUNT] = {4, 7, 10, 13};
+const byte ULTRASONIC_PINS[ROAD_COUNT] = {A0, A1, A2, A3};
 
 const unsigned long LOW_GREEN_MS = 5000;
 const unsigned long MEDIUM_GREEN_MS = 10000;
@@ -32,11 +42,17 @@ const unsigned long YELLOW_MS = 2000;
 const unsigned long IDLE_POLL_MS = 100;
 const unsigned long AI_TIMEOUT_MS = 15000;
 const unsigned long BLOCKED_TIMEOUT_MS = 3000;
+const unsigned long ULTRASONIC_REFRESH_MS = 250;
+const unsigned int ULTRASONIC_TIMEOUT_US = 6000;
+const int ULTRASONIC_MIN_CM = 3;
+const int ULTRASONIC_DETECT_CM = 30;
+const int ULTRASONIC_PRESENT_LEVEL = 1;
 
 int roadLevels[ROAD_COUNT] = {0, 0, 0, 0};
 unsigned long lastAiUpdateMs = 0;
 byte blockedOwnerPhase = 0;
 unsigned long lastBlockedUpdateMs = 0;
+unsigned long lastUltrasonicReadMs = 0;
 
 char serialBuffer[64];
 byte serialIndex = 0;
@@ -48,19 +64,20 @@ void setup() {
     pinMode(R_PINS[road], OUTPUT);
     pinMode(Y_PINS[road], OUTPUT);
     pinMode(G_PINS[road], OUTPUT);
+    pinMode(ULTRASONIC_PINS[road], INPUT);
   }
 
   allRed();
   Serial.println("READY");
   Serial.println("Send: LEVELS,0,1,2,3");
+  Serial.println("Ultrasonic fallback: A0,A1,A2,A3");
 }
 
 void loop() {
   readSerialCommands();
 
-  if (lastAiUpdateMs > 0 && millis() - lastAiUpdateMs > AI_TIMEOUT_MS) {
-    clearRoadLevels();
-    allRed();
+  if (!aiLevelsFresh()) {
+    refreshUltrasonicFallback();
   }
 
   int pair13 = max(roadLevels[0], roadLevels[2]);
@@ -206,6 +223,41 @@ void clearRoadLevels() {
   for (byte road = 0; road < ROAD_COUNT; road++) {
     roadLevels[road] = 0;
   }
+}
+
+bool aiLevelsFresh() {
+  return lastAiUpdateMs > 0 && millis() - lastAiUpdateMs <= AI_TIMEOUT_MS;
+}
+
+void refreshUltrasonicFallback() {
+  unsigned long now = millis();
+  if (lastUltrasonicReadMs > 0 && now - lastUltrasonicReadMs < ULTRASONIC_REFRESH_MS) {
+    return;
+  }
+
+  lastUltrasonicReadMs = now;
+  for (byte road = 0; road < ROAD_COUNT; road++) {
+    int distanceCm = readOnePinUltrasonicCm(ULTRASONIC_PINS[road]);
+    bool vehiclePresent = distanceCm >= ULTRASONIC_MIN_CM && distanceCm <= ULTRASONIC_DETECT_CM;
+    roadLevels[road] = vehiclePresent ? ULTRASONIC_PRESENT_LEVEL : 0;
+  }
+}
+
+int readOnePinUltrasonicCm(byte pin) {
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(pin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(pin, LOW);
+
+  pinMode(pin, INPUT);
+  unsigned long durationUs = pulseIn(pin, HIGH, ULTRASONIC_TIMEOUT_US);
+  if (durationUs == 0) {
+    return 999;
+  }
+
+  return (int)(durationUs / 58);
 }
 
 unsigned long getGreenTimeMs(int level) {

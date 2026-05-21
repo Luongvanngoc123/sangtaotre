@@ -1,0 +1,89 @@
+# Hệ thống đèn giao thông AI + cảm biến siêu âm
+
+Repo này chứa sketch Arduino `project_dengt.ino` để điều khiển 4 module đèn giao thông loại `R/Y/G/GND`.
+
+Hệ thống có 2 nguồn dữ liệu:
+
+- AI gửi dữ liệu qua Serial: `LEVELS,r1,r2,r3,r4` và `BLOCKED,...`.
+- Cảm biến siêu âm HC-SR04 làm dự phòng: khi AI mất tín hiệu quá 15 giây, Arduino tự đọc 4 cảm biến siêu âm.
+
+## Logic pha đèn
+
+- Road 1 và Road 3 xanh cùng lúc.
+- Road 2 và Road 4 xanh cùng lúc.
+- Mức xe:
+  - `0`: không có xe
+  - `1`: ít xe, xanh 5 giây
+  - `2`: vừa, xanh 10 giây
+  - `3`: đông, xanh 15 giây
+- Nếu block zone đang có xe của pha đối diện, Arduino giữ tất cả đèn đỏ cho đến khi an toàn.
+
+## Chân module đèn giao thông
+
+Module đang dùng là loại `R/Y/G/GND`, thường đã có điện trở trên module nên có thể cắm thẳng vào Arduino.
+
+| Hướng | Chân R | Chân Y | Chân G | GND |
+| --- | --- | --- | --- | --- |
+| Road 1 | D2 | D3 | D4 | GND chung |
+| Road 2 | D5 | D6 | D7 | GND chung |
+| Road 3 | D8 | D9 | D10 | GND chung |
+| Road 4 | D11 | D12 | D13 | GND chung |
+
+Tất cả chân `GND` của 4 module đèn nối về thanh GND trên breadboard, rồi nối thanh GND đó về chân `GND` trên Arduino Uno.
+
+## Chân cảm biến HC-SR04
+
+Do `D2-D13` đã dùng hết cho đèn, code dùng `A0-A3` làm chân tín hiệu cho 4 cảm biến siêu âm.
+
+| Hướng | VCC | GND | TRIG | ECHO |
+| --- | --- | --- | --- | --- |
+| Road 1 | 5V chung | GND chung | A0 | A0 qua điện trở 1k-4.7k |
+| Road 2 | 5V chung | GND chung | A1 | A1 qua điện trở 1k-4.7k |
+| Road 3 | 5V chung | GND chung | A2 | A2 qua điện trở 1k-4.7k |
+| Road 4 | 5V chung | GND chung | A3 | A3 qua điện trở 1k-4.7k |
+
+Mỗi cảm biến HC-SR04 dùng chung một chân tín hiệu:
+
+- `TRIG` nối trực tiếp vào chân `A0/A1/A2/A3`.
+- `ECHO` nối vào cùng chân đó nhưng nên đi qua điện trở `1k-4.7k`.
+
+Ví dụ Road 1:
+
+```text
+HC-SR04 VCC  -> 5V
+HC-SR04 GND  -> GND
+HC-SR04 TRIG -> A0
+HC-SR04 ECHO -> điện trở 1k-4.7k -> A0
+```
+
+Điện trở ở dây `ECHO` không phải để làm sáng LED. Nó dùng để bảo vệ chân Arduino vì `TRIG` và `ECHO` đang dùng chung một chân tín hiệu.
+
+## Cách nối breadboard
+
+1. Kéo `5V` từ Arduino vào thanh `+` của breadboard.
+2. Kéo `GND` từ Arduino vào thanh `-` của breadboard.
+3. Nếu dùng 4 breadboard riêng, nối tất cả thanh `+` với nhau và tất cả thanh `-` với nhau.
+4. Module đèn chỉ cần nối các chân `R/Y/G` về Arduino theo bảng trên, chân `GND` về GND chung.
+5. Mỗi HC-SR04 nối `VCC` về 5V chung, `GND` về GND chung, `TRIG/ECHO` về chân `A0-A3` theo đúng Road.
+
+## Lưu ý khi lắp thực tế
+
+- Không dùng `D0/D1` vì 2 chân đó cần cho USB Serial với AI.
+- Nếu đặt cảm biến ngoài trời mưa, HC-SR04 thường không chống nước. Nên dùng `JSN-SR04T` nếu cần chống mưa tốt hơn.
+- Khoảng cách phát hiện hiện tại trong code là `3-30cm`.
+- Fallback siêu âm chỉ chạy khi AI không gửi `LEVELS` qua Serial trong 15 giây.
+- Khi AI hoạt động bình thường, Arduino ưu tiên dữ liệu AI, cảm biến siêu âm chỉ là dự phòng.
+
+## Upload lên Arduino
+
+Dùng Arduino CLI trong PowerShell:
+
+```powershell
+$tmp = "$env:TEMP\project_dengt"
+New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+Copy-Item .\project_dengt.ino "$tmp\project_dengt.ino" -Force
+arduino-cli compile --fqbn arduino:avr:uno "$tmp"
+arduino-cli upload -p COM6 --fqbn arduino:avr:uno "$tmp"
+```
+
+Đổi `COM6` thành cổng COM thật của Arduino nếu máy tính nhận cổng khác.
