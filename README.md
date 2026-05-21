@@ -5,7 +5,7 @@ Repo này chứa sketch Arduino `project_dengt.ino` để điều khiển 4 modu
 Hệ thống có 2 nguồn dữ liệu:
 
 - AI gửi dữ liệu qua Serial: `LEVELS,r1,r2,r3,r4` và `BLOCKED,...`.
-- Cảm biến siêu âm HC-SR04 làm dự phòng: khi AI mất tín hiệu quá 15 giây, Arduino tự đọc 4 cảm biến siêu âm.
+- Cảm biến siêu âm HC-SR04 dùng để kiểm chứng camera, đồng thời làm dự phòng khi AI mất tín hiệu quá 15 giây.
 
 ## Logic pha đèn
 
@@ -17,6 +17,30 @@ Hệ thống có 2 nguồn dữ liệu:
   - `2`: vừa, xanh 10 giây
   - `3`: đông, xanh 15 giây
 - Nếu block zone đang có xe của pha đối diện, Arduino giữ tất cả đèn đỏ cho đến khi an toàn.
+
+## Logic camera + cảm biến siêu âm
+
+Khi AI đang online, Arduino luôn đọc HC-SR04 và so sánh với dữ liệu camera:
+
+| Camera | HC-SR04 | Hành động |
+| --- | --- | --- |
+| Có xe | Có xe | Bình thường, cho chạy theo AI |
+| Có xe | Không có xe | Tất cả đèn đỏ và gửi cảnh báo về server |
+| Không có xe | Có xe | Gửi cảnh báo về server |
+| Không có xe | Không có xe | Bình thường |
+
+Arduino gửi cảnh báo qua Serial theo dạng:
+
+```text
+ALERT,CAMERA_ONLY,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
+ALERT,SENSOR_ONLY,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
+ALERT,MISMATCH,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
+```
+
+Trong đó mỗi mask là 4 bit ứng với Road 1 đến Road 4.
+
+Ví dụ `cameraOnlyMask = 1` nghĩa là Road 1 camera thấy xe nhưng cảm biến không thấy.  
+Ví dụ `sensorOnlyMask = 2` nghĩa là Road 2 cảm biến thấy xe nhưng camera không thấy.
 
 ## Chân module đèn giao thông
 
@@ -71,8 +95,16 @@ HC-SR04 ECHO -> điện trở 1k-4.7k -> A0
 - Không dùng `D0/D1` vì 2 chân đó cần cho USB Serial với AI.
 - Nếu đặt cảm biến ngoài trời mưa, HC-SR04 thường không chống nước. Nên dùng `JSN-SR04T` nếu cần chống mưa tốt hơn.
 - Khoảng cách phát hiện hiện tại trong code là `3-30cm`.
-- Fallback siêu âm chỉ chạy khi AI không gửi `LEVELS` qua Serial trong 15 giây.
-- Khi AI hoạt động bình thường, Arduino ưu tiên dữ liệu AI, cảm biến siêu âm chỉ là dự phòng.
+- Khi AI hoạt động bình thường, cảm biến siêu âm dùng để kiểm chứng camera.
+- Khi AI không gửi `LEVELS` qua Serial trong 15 giây, Arduino dùng HC-SR04 làm dự phòng để chạy đèn.
+- Muốn gửi cảnh báo về server, cấu hình biến môi trường `TRAFFIC_SERVER_URL` trước khi chạy file bat AI.
+
+Ví dụ:
+
+```powershell
+$env:TRAFFIC_SERVER_URL = "http://localhost:3000/api/traffic-alert"
+.\run_ai_obs_arduino.bat
+```
 
 ## Upload lên Arduino
 

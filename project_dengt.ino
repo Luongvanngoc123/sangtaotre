@@ -6,14 +6,19 @@
 // Road 3: D8  -> R, D9  -> Y, D10 -> G
 // Road 4: D11 -> R, D12 -> Y, D13 -> G
 //
-// Optional HC-SR04 fallback sensors, using one Arduino pin per sensor:
+// HC-SR04 sensors, using one Arduino pin per sensor:
 // Road 1 sensor signal: A0
 // Road 2 sensor signal: A1
 // Road 3 sensor signal: A2
 // Road 4 sensor signal: A3
 //
-// In fallback mode, connect TRIG and ECHO to the same signal line.
+// Connect TRIG and ECHO to the same signal line.
 // Prefer putting a 1k-4.7k resistor between ECHO and that signal line.
+//
+// Cross-check logic while AI is online:
+//   Camera sees car, sensor does not -> all red and ALERT,CAMERA_ONLY,...
+//   Camera does not see car, sensor does -> ALERT,SENSOR_ONLY,...
+//   Camera and sensor both see car on the same road -> normal
 //
 // Serial protocol from AI:
 //   LEVELS,r1,r2,r3,r4
@@ -43,16 +48,22 @@ const unsigned long IDLE_POLL_MS = 100;
 const unsigned long AI_TIMEOUT_MS = 15000;
 const unsigned long BLOCKED_TIMEOUT_MS = 3000;
 const unsigned long ULTRASONIC_REFRESH_MS = 250;
+const unsigned long ALERT_REPEAT_MS = 3000;
 const unsigned int ULTRASONIC_TIMEOUT_US = 6000;
 const int ULTRASONIC_MIN_CM = 3;
 const int ULTRASONIC_DETECT_CM = 30;
 const int ULTRASONIC_PRESENT_LEVEL = 1;
 
 int roadLevels[ROAD_COUNT] = {0, 0, 0, 0};
+int sensorLevels[ROAD_COUNT] = {0, 0, 0, 0};
 unsigned long lastAiUpdateMs = 0;
 byte blockedOwnerPhase = 0;
 unsigned long lastBlockedUpdateMs = 0;
 unsigned long lastUltrasonicReadMs = 0;
+byte lastAlertType = 0;
+byte lastAlertCameraOnlyMask = 0;
+byte lastAlertSensorOnlyMask = 0;
+unsigned long lastAlertSentMs = 0;
 
 char serialBuffer[64];
 byte serialIndex = 0;
@@ -75,9 +86,16 @@ void setup() {
 
 void loop() {
   readSerialCommands();
+  refreshUltrasonicSensors();
 
-  if (!aiLevelsFresh()) {
-    refreshUltrasonicFallback();
+  if (aiLevelsFresh()) {
+    if (crossCheckNeedsAllRed()) {
+      allRed();
+      waitWithSerial(IDLE_POLL_MS);
+      return;
+    }
+  } else {
+    copySensorLevelsToRoadLevels();
   }
 
   int pair13 = max(roadLevels[0], roadLevels[2]);
@@ -229,7 +247,7 @@ bool aiLevelsFresh() {
   return lastAiUpdateMs > 0 && millis() - lastAiUpdateMs <= AI_TIMEOUT_MS;
 }
 
-void refreshUltrasonicFallback() {
+void refreshUltrasonicSensors() {
   unsigned long now = millis();
   if (lastUltrasonicReadMs > 0 && now - lastUltrasonicReadMs < ULTRASONIC_REFRESH_MS) {
     return;
@@ -239,7 +257,13 @@ void refreshUltrasonicFallback() {
   for (byte road = 0; road < ROAD_COUNT; road++) {
     int distanceCm = readOnePinUltrasonicCm(ULTRASONIC_PINS[road]);
     bool vehiclePresent = distanceCm >= ULTRASONIC_MIN_CM && distanceCm <= ULTRASONIC_DETECT_CM;
-    roadLevels[road] = vehiclePresent ? ULTRASONIC_PRESENT_LEVEL : 0;
+    sensorLevels[road] = vehiclePresent ? ULTRASONIC_PRESENT_LEVEL : 0;
+  }
+}
+
+void copySensorLevelsToRoadLevels() {
+  for (byte road = 0; road < ROAD_COUNT; road++) {
+    roadLevels[road] = sensorLevels[road];
   }
 }
 
@@ -258,6 +282,73 @@ int readOnePinUltrasonicCm(byte pin) {
   }
 
   return (int)(durationUs / 58);
+}
+
+byte presentMaskFromLevels(const int levels[]) {
+  byte mask = 0;
+  for (byte road = 0; road < ROAD_COUNT; road++) {
+    if (levels[road] > 0) {
+      mask |= (1 << road);
+    }
+  }
+  return mask;
+}
+
+bool crossCheckNeedsAllRed() {
+  byte cameraMask = presentMaskFromLevels(roadLevels);
+  byte sensorMask = presentMaskFromLevels(sensorLevels);
+  byte cameraOnlyMask = cameraMask & ~sensorMask;
+  byte sensorOnlyMask = sensorMask & ~cameraMask;
+
+  if (cameraOnlyMask == 0 && sensorOnlyMask == 0) {
+    lastAlertType = 0;
+    return false;
+  }
+
+  byte alertType = 0;
+  if (cameraOnlyMask > 0 && sensorOnlyMask > 0) {
+    alertType = 3;
+  } else if (cameraOnlyMask > 0) {
+    alertType = 1;
+  } else {
+    alertType = 2;
+  }
+
+  sendCrossCheckAlert(alertType, cameraOnlyMask, sensorOnlyMask, cameraMask, sensorMask);
+  return cameraOnlyMask > 0;
+}
+
+void sendCrossCheckAlert(byte alertType, byte cameraOnlyMask, byte sensorOnlyMask, byte cameraMask, byte sensorMask) {
+  unsigned long now = millis();
+  bool changed = alertType != lastAlertType
+    || cameraOnlyMask != lastAlertCameraOnlyMask
+    || sensorOnlyMask != lastAlertSensorOnlyMask;
+
+  if (!changed && now - lastAlertSentMs < ALERT_REPEAT_MS) {
+    return;
+  }
+
+  lastAlertType = alertType;
+  lastAlertCameraOnlyMask = cameraOnlyMask;
+  lastAlertSensorOnlyMask = sensorOnlyMask;
+  lastAlertSentMs = now;
+
+  Serial.print("ALERT,");
+  if (alertType == 1) {
+    Serial.print("CAMERA_ONLY");
+  } else if (alertType == 2) {
+    Serial.print("SENSOR_ONLY");
+  } else {
+    Serial.print("MISMATCH");
+  }
+  Serial.print(',');
+  Serial.print(cameraOnlyMask);
+  Serial.print(',');
+  Serial.print(sensorOnlyMask);
+  Serial.print(',');
+  Serial.print(cameraMask);
+  Serial.print(',');
+  Serial.println(sensorMask);
 }
 
 unsigned long getGreenTimeMs(int level) {
@@ -281,10 +372,14 @@ void runPairIfNeeded(byte roadA, byte roadB, int level, byte phase) {
   waitUntilPhaseAllowed(phase);
 
   setPairGreen(roadA, roadB);
-  waitWithSerial(getGreenTimeMs(level));
+  if (!waitWithSerial(getGreenTimeMs(level))) {
+    return;
+  }
 
   setPairYellow(roadA, roadB);
-  waitWithSerial(YELLOW_MS);
+  if (!waitWithSerial(YELLOW_MS)) {
+    return;
+  }
 
   setRoadRed(roadA);
   setRoadRed(roadB);
@@ -338,10 +433,16 @@ void waitUntilPhaseAllowed(byte phase) {
   }
 }
 
-void waitWithSerial(unsigned long durationMs) {
+bool waitWithSerial(unsigned long durationMs) {
   unsigned long startedAt = millis();
   while (millis() - startedAt < durationMs) {
     readSerialCommands();
+    refreshUltrasonicSensors();
+    if (aiLevelsFresh() && crossCheckNeedsAllRed()) {
+      allRed();
+      return false;
+    }
     delay(10);
   }
+  return true;
 }
