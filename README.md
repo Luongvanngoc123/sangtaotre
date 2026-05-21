@@ -32,10 +32,16 @@ Khi AI đang online, Arduino luôn đọc HC-SR04 và so sánh với dữ liệu
 Arduino gửi cảnh báo qua Serial theo dạng:
 
 ```text
-ALERT,CAMERA_ONLY,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
-ALERT,SENSOR_ONLY,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
-ALERT,MISMATCH,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
+ALERT,CAM_THAY_CAM_BIEN_KHONG,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
+ALERT,CAM_KHONG_THAY_CAM_BIEN_THAY,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
+ALERT,DU_LIEU_KHONG_KHOP,cameraOnlyMask,sensorOnlyMask,cameraMask,sensorMask
 ```
+
+Ý nghĩa:
+
+- `CAM_THAY_CAM_BIEN_KHONG`: camera thấy xe nhưng cảm biến không thấy.
+- `CAM_KHONG_THAY_CAM_BIEN_THAY`: camera không thấy xe nhưng cảm biến thấy.
+- `DU_LIEU_KHONG_KHOP`: dữ liệu camera và cảm biến bị lệch hỗn hợp.
 
 Trong đó mỗi mask là 4 bit ứng với Road 1 đến Road 4.
 

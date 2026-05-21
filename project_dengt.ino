@@ -16,8 +16,8 @@
 // Prefer putting a 1k-4.7k resistor between ECHO and that signal line.
 //
 // Cross-check logic while AI is online:
-//   Camera sees car, sensor does not -> all red and ALERT,CAMERA_ONLY,...
-//   Camera does not see car, sensor does -> ALERT,SENSOR_ONLY,...
+//   Camera sees car, sensor does not -> all red and ALERT,CAM_THAY_CAM_BIEN_KHONG,...
+//   Camera does not see car, sensor does -> ALERT,CAM_KHONG_THAY_CAM_BIEN_THAY,...
 //   Camera and sensor both see car on the same road -> normal
 //
 // Serial protocol from AI:
@@ -335,11 +335,11 @@ void sendCrossCheckAlert(byte alertType, byte cameraOnlyMask, byte sensorOnlyMas
 
   Serial.print("ALERT,");
   if (alertType == 1) {
-    Serial.print("CAMERA_ONLY");
+    Serial.print("CAM_THAY_CAM_BIEN_KHONG");
   } else if (alertType == 2) {
-    Serial.print("SENSOR_ONLY");
+    Serial.print("CAM_KHONG_THAY_CAM_BIEN_THAY");
   } else {
-    Serial.print("MISMATCH");
+    Serial.print("DU_LIEU_KHONG_KHOP");
   }
   Serial.print(',');
   Serial.print(cameraOnlyMask);
