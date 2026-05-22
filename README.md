@@ -208,6 +208,6 @@ Bản AI + cảm biến hoạt động như sau:
 
 - Khi AI còn gửi `LEVELS`, Arduino chạy theo AI.
 - HC-SR04 luôn được đọc để kiểm chứng camera.
-- Nếu camera thấy xe nhưng cảm biến không thấy, Arduino bật tất cả đèn đỏ và gửi `ALERT,CAM_THAY_CAM_BIEN_KHONG,...`.
+- Nếu camera thấy xe nhưng cảm biến không thấy, Arduino vẫn chạy theo AI và gửi `ALERT,CAM_THAY_CAM_BIEN_KHONG,...`.
 - Nếu camera không thấy xe nhưng cảm biến thấy, Arduino gửi `ALERT,CAM_KHONG_THAY_CAM_BIEN_THAY,...`.
 - Nếu AI mất tín hiệu quá 15 giây, Arduino tự chuyển sang điều khiển bằng cảm biến.

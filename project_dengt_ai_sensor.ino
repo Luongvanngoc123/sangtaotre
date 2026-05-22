@@ -19,7 +19,7 @@
 // Behavior:
 //   AI online  -> AI controls the light, sensors cross-check it.
 //   AI offline -> sensors control the light.
-//   Camera sees but sensor does not -> all red + ALERT,CAM_THAY_CAM_BIEN_KHONG,...
+//   Camera sees but sensor does not -> keep AI control + ALERT,CAM_THAY_CAM_BIEN_KHONG,...
 //   Sensor sees but camera does not -> ALERT,CAM_KHONG_THAY_CAM_BIEN_THAY,...
 
 const byte ROAD_COUNT = 4;
@@ -37,7 +37,7 @@ const byte ROAD_TO_PHASE[ROAD_COUNT] = {PHASE1, PHASE2, PHASE1, PHASE2};
 const byte ULTRASONIC_TRIG_PINS[ROAD_COUNT] = {A0, A1, A2, A3};
 const byte ULTRASONIC_ECHO_PINS[ROAD_COUNT] = {8, 9, 10, 11};
 
-const bool CAMERA_ONLY_FORCES_ALL_RED = true;
+const bool CAMERA_ONLY_FORCES_ALL_RED = false;
 
 const unsigned long LOW_GREEN_MS = 5000;
 const unsigned long MEDIUM_GREEN_MS = 10000;
