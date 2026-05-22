@@ -20,6 +20,8 @@ Sau đó chạy cell này để kiểm tra GPU:
 !nvidia-smi
 ```
 
+Nếu Colab đang dùng Tesla T4 thì VRAM thường khoảng `15GB`. Cấu hình train bên dưới đã set theo mức VRAM này.
+
 ## 2. Mount Google Drive
 
 ```python
@@ -113,9 +115,15 @@ Nếu bản mới bị lỗi không nhận `yolo26s.pt`, dùng bản đã chạy
 !pip install -U ultralytics==8.4.51
 ```
 
-## 7. Train YOLO26
+## 7. Train YOLO26 cho GPU 15GB VRAM
 
-Bản khuyến nghị nếu dùng T4:
+Cấu hình khuyến nghị cho GPU khoảng `15GB VRAM`, ví dụ Tesla T4:
+
+- Model: `yolo26s.pt`
+- Ảnh train: `768`
+- Batch: `24`
+- GPU: `device=0`
+- Cache: `ram`
 
 ```python
 from ultralytics import YOLO
@@ -132,12 +140,34 @@ results = model.train(
     name="find_car_priority_yolo26s_768_b24",
     cache="ram",
     optimizer="MuSGD",
+    amp=True,
+    workers=8,
     patience=100,
     plots=True
 )
 ```
 
-Nếu Colab báo hết VRAM, giảm batch:
+Nếu Colab báo hết VRAM, giảm batch xuống `16` trước:
+
+```python
+results = model.train(
+    data=str(data_yaml),
+    epochs=150,
+    imgsz=768,
+    batch=16,
+    device=0,
+    project="/content/runs",
+    name="find_car_priority_yolo26s_768_b16",
+    cache="ram",
+    optimizer="MuSGD",
+    amp=True,
+    workers=8,
+    patience=100,
+    plots=True
+)
+```
+
+Nếu vẫn hết VRAM, giảm tiếp xuống `12`:
 
 ```python
 results = model.train(
@@ -150,6 +180,8 @@ results = model.train(
     name="find_car_priority_yolo26s_768_b12",
     cache="ram",
     optimizer="MuSGD",
+    amp=True,
+    workers=8,
     patience=100,
     plots=True
 )
@@ -177,6 +209,12 @@ if not best_pt.exists():
 
 shutil.copy(best_pt, save_to)
 print("Đã lưu model vào:", save_to)
+```
+
+Nếu train bằng cấu hình `b16`, đổi đường dẫn thành:
+
+```python
+best_pt = Path("/content/runs/find_car_priority_yolo26s_768_b16/weights/best.pt")
 ```
 
 Nếu train bằng cấu hình `b12`, đổi đường dẫn thành:
