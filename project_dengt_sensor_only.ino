@@ -24,6 +24,7 @@ const byte NO_PHASE = 255;
 const byte R_PINS[PHASE_COUNT] = {2, 5};
 const byte Y_PINS[PHASE_COUNT] = {3, 6};
 const byte G_PINS[PHASE_COUNT] = {4, 7};
+const byte ROAD_TO_PHASE[ROAD_COUNT] = {PHASE1, PHASE2, PHASE1, PHASE2};
 
 const byte ULTRASONIC_TRIG_PINS[ROAD_COUNT] = {A0, A1, A2, A3};
 const byte ULTRASONIC_ECHO_PINS[ROAD_COUNT] = {8, 9, 10, 11};
@@ -31,6 +32,7 @@ const byte ULTRASONIC_ECHO_PINS[ROAD_COUNT] = {8, 9, 10, 11};
 const unsigned long ONE_ROAD_GREEN_MS = 5000;
 const unsigned long TWO_ROADS_GREEN_MS = 10000;
 const unsigned long MIN_GREEN_MS = 2000;
+const unsigned long CLEAR_GRACE_MS = 1000;
 const unsigned long YELLOW_MS = 2000;
 const unsigned long IDLE_POLL_MS = 100;
 const unsigned long SENSOR_REFRESH_MS = 150;
@@ -64,6 +66,7 @@ void setup() {
   allRed();
   Serial.println("READY SENSOR_ONLY");
   Serial.println("Lights: phase1=D2,D3,D4 phase2=D5,D6,D7");
+  Serial.println("Road mapping: R1,R3 -> phase1; R2,R4 -> phase2");
   Serial.println("Ultrasonic TRIG: A0,A1,A2,A3 ECHO: D8,D9,D10,D11");
 }
 
@@ -193,10 +196,13 @@ int readUltrasonicCm(byte trigPin, byte echoPin) {
 }
 
 int getPhaseLevel(byte phase) {
-  if (phase == PHASE1) {
-    return sensorLevels[0] + sensorLevels[2];
+  int level = 0;
+  for (byte road = 0; road < ROAD_COUNT; road++) {
+    if (ROAD_TO_PHASE[road] == phase) {
+      level += sensorLevels[road];
+    }
   }
-  return sensorLevels[1] + sensorLevels[3];
+  return level;
 }
 
 byte choosePhaseToRun(int phase1Level, int phase2Level) {
@@ -232,14 +238,38 @@ bool runPhase(byte phase, int initialLevel) {
 
   setPhaseGreen(phase);
 
-  unsigned long greenMs = getGreenTimeMs(initialLevel);
-  unsigned long startedAt = millis();
-  while (millis() - startedAt < greenMs) {
+  byte oppositePhase = phase == PHASE1 ? PHASE2 : PHASE1;
+  unsigned long segmentMs = getGreenTimeMs(initialLevel);
+  unsigned long segmentStartedAt = millis();
+  unsigned long clearStartedAt = 0;
+
+  while (true) {
     readSerialCommands();
     refreshSensors();
 
     int currentLevel = getPhaseLevel(phase);
-    if (currentLevel <= 0 && millis() - startedAt >= MIN_GREEN_MS) {
+    int oppositeLevel = getPhaseLevel(oppositePhase);
+    unsigned long now = millis();
+    unsigned long elapsed = now - segmentStartedAt;
+
+    if (currentLevel > 0) {
+      clearStartedAt = 0;
+    } else if (elapsed >= MIN_GREEN_MS) {
+      if (clearStartedAt == 0) {
+        clearStartedAt = now;
+      }
+      if (now - clearStartedAt >= CLEAR_GRACE_MS) {
+        break;
+      }
+    }
+
+    if (elapsed >= segmentMs) {
+      if (currentLevel > 0 && oppositeLevel <= 0) {
+        segmentStartedAt = now;
+        segmentMs = getGreenTimeMs(currentLevel);
+        clearStartedAt = 0;
+        continue;
+      }
       break;
     }
 

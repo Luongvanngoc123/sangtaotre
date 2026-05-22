@@ -188,4 +188,5 @@ Bản sensor-only không cần chạy `run_ai_obs_arduino.bat`. Nó tự đọc 
 - Pha 2 = Road 2 + Road 4.
 - 1 road có xe trong khoảng `3-15cm`: xanh 5 giây.
 - 2 road trong cùng pha có xe trong khoảng `3-15cm`: xanh 10 giây.
-- Nếu pha đang xanh hết xe sau tối thiểu 2 giây, đèn sẽ chuyển vàng và kết thúc sớm.
+- Nếu pha đang xanh hết xe sau tối thiểu 2 giây và giữ trạng thái hết xe trong 1 giây, đèn sẽ chuyển vàng và kết thúc sớm.
+- Nếu pha hiện tại vẫn còn xe và pha đối diện không có xe, đèn sẽ giữ xanh tiếp, không nhảy đỏ rồi xanh lại.
