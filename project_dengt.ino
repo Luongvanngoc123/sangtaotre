@@ -62,6 +62,7 @@ const int ULTRASONIC_PRESENT_LEVEL = 1;
 
 int roadLevels[ROAD_COUNT] = {0, 0, 0, 0};
 int sensorLevels[ROAD_COUNT] = {0, 0, 0, 0};
+int sensorDistancesCm[ROAD_COUNT] = {999, 999, 999, 999};
 unsigned long lastAiUpdateMs = 0;
 byte blockedOwnerPhase = 0;
 unsigned long lastBlockedUpdateMs = 0;
@@ -152,6 +153,12 @@ void handleSerialCommand(char *command) {
 
   if (equalsIgnoreCase(token, "PING")) {
     Serial.println("PONG");
+    return;
+  }
+
+  if (equalsIgnoreCase(token, "SENSORS") || equalsIgnoreCase(token, "HEALTH")) {
+    forceRefreshUltrasonicSensors();
+    printSensorHealth();
     return;
   }
 
@@ -266,9 +273,15 @@ void refreshUltrasonicSensors() {
   lastUltrasonicReadMs = now;
   for (byte road = 0; road < ROAD_COUNT; road++) {
     int distanceCm = readOnePinUltrasonicCm(ULTRASONIC_PINS[road]);
+    sensorDistancesCm[road] = distanceCm;
     bool vehiclePresent = distanceCm >= ULTRASONIC_MIN_CM && distanceCm <= ULTRASONIC_DETECT_CM;
     sensorLevels[road] = vehiclePresent ? ULTRASONIC_PRESENT_LEVEL : 0;
   }
+}
+
+void forceRefreshUltrasonicSensors() {
+  lastUltrasonicReadMs = 0;
+  refreshUltrasonicSensors();
 }
 
 void copySensorLevelsToRoadLevels() {
@@ -359,6 +372,31 @@ void sendCrossCheckAlert(byte alertType, byte cameraOnlyMask, byte sensorOnlyMas
   Serial.print(cameraMask);
   Serial.print(',');
   Serial.println(sensorMask);
+}
+
+void printSensorHealth() {
+  Serial.print("SENSORS");
+  for (byte road = 0; road < ROAD_COUNT; road++) {
+    Serial.print(",R");
+    Serial.print(road + 1);
+    Serial.print('=');
+    if (sensorDistancesCm[road] >= 999) {
+      Serial.print("NO_ECHO");
+    } else {
+      Serial.print(sensorDistancesCm[road]);
+      Serial.print("cm");
+    }
+
+    Serial.print(':');
+    if (sensorLevels[road] > 0) {
+      Serial.print("CO_XE");
+    } else if (sensorDistancesCm[road] >= 999) {
+      Serial.print("KHONG_DOC_DUOC");
+    } else {
+      Serial.print("OK_KHONG_XE");
+    }
+  }
+  Serial.println();
 }
 
 unsigned long getGreenTimeMs(int level) {

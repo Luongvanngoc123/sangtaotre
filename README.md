@@ -131,6 +131,28 @@ $env:TRAFFIC_SERVER_URL = "http://localhost:3000/api/traffic-alert"
 .\run_ai_obs_arduino.bat
 ```
 
+## Kiểm tra từng cảm biến
+
+Firmware có lệnh Serial để kiểm tra 4 cảm biến:
+
+```text
+SENSORS
+```
+
+Arduino sẽ trả về dạng:
+
+```text
+SENSORS,R1=NO_ECHO:KHONG_DOC_DUOC,R2=18cm:CO_XE,R3=55cm:OK_KHONG_XE,R4=NO_ECHO:KHONG_DOC_DUOC
+```
+
+Ý nghĩa:
+
+- `CO_XE`: cảm biến đọc được vật trong vùng `3-30cm`.
+- `OK_KHONG_XE`: cảm biến có echo nhưng vật nằm ngoài vùng nhận xe.
+- `KHONG_DOC_DUOC`: không nhận được echo. Có thể do chưa có vật trước cảm biến, đấu sai `VCC/GND/TRIG/ECHO`, hoặc cảm biến chưa hoạt động.
+
+Khi test, nên đưa tay hoặc xe mô hình cách từng HC-SR04 khoảng `5-20cm` rồi gửi lại lệnh `SENSORS`.
+
 ## Upload lên Arduino
 
 Dùng Arduino CLI trong PowerShell:
