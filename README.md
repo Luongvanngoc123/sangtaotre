@@ -8,6 +8,12 @@ Có 3 sketch:
 - `project_dengt_sensor_only.ino`: bản chỉ dùng HC-SR04, không cần AI/Python.
 - `project_dengt_ai_sensor.ino`: bản kết hợp AI + HC-SR04.
 
+Hướng dẫn train model YOLO26 trên Google Colab nằm ở:
+
+```text
+huong_dan_train_yolo26_colab.md
+```
+
 Hệ thống có 2 nguồn dữ liệu:
 
 - AI gửi dữ liệu qua Serial: `LEVELS,r1,r2,r3,r4` và `BLOCKED,...`.
