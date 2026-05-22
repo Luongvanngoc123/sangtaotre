@@ -37,6 +37,7 @@ const byte PHASE_COUNT = 2;
 
 const byte PHASE1 = 0;
 const byte PHASE2 = 1;
+const byte NO_PHASE = 255;
 
 const byte R_PINS[PHASE_COUNT] = {2, 5};
 const byte Y_PINS[PHASE_COUNT] = {3, 6};
@@ -69,6 +70,7 @@ byte lastAlertType = 0;
 byte lastAlertCameraOnlyMask = 0;
 byte lastAlertSensorOnlyMask = 0;
 unsigned long lastAlertSentMs = 0;
+byte lastServedPhase = PHASE2;
 
 char serialBuffer[64];
 byte serialIndex = 0;
@@ -118,8 +120,16 @@ void loop() {
     return;
   }
 
-  runPhaseIfNeeded(PHASE1, phase1Level, 1);
-  runPhaseIfNeeded(PHASE2, phase2Level, 2);
+  byte selectedPhase = choosePhaseToRun(phase1Level, phase2Level);
+  if (selectedPhase == PHASE1) {
+    if (runPhaseIfNeeded(PHASE1, phase1Level, 1)) {
+      lastServedPhase = PHASE1;
+    }
+  } else if (selectedPhase == PHASE2) {
+    if (runPhaseIfNeeded(PHASE2, phase2Level, 2)) {
+      lastServedPhase = PHASE2;
+    }
+  }
 }
 
 void readSerialCommands() {
@@ -410,24 +420,44 @@ unsigned long getGreenTimeMs(int level) {
   }
 }
 
-void runPhaseIfNeeded(byte phase, int level, byte phaseCode) {
+byte choosePhaseToRun(int phase1Level, int phase2Level) {
+  if (phase1Level <= 0 && phase2Level <= 0) {
+    return NO_PHASE;
+  }
+  if (phase1Level > 0 && phase2Level <= 0) {
+    return PHASE1;
+  }
+  if (phase2Level > 0 && phase1Level <= 0) {
+    return PHASE2;
+  }
+  if (phase1Level > phase2Level) {
+    return PHASE1;
+  }
+  if (phase2Level > phase1Level) {
+    return PHASE2;
+  }
+  return lastServedPhase == PHASE1 ? PHASE2 : PHASE1;
+}
+
+bool runPhaseIfNeeded(byte phase, int level, byte phaseCode) {
   if (level <= 0) {
-    return;
+    return false;
   }
 
   waitUntilPhaseAllowed(phaseCode);
 
   setPhaseGreen(phase);
   if (!waitWithSerial(getGreenTimeMs(level))) {
-    return;
+    return false;
   }
 
   setPhaseYellow(phase);
   if (!waitWithSerial(YELLOW_MS)) {
-    return;
+    return false;
   }
 
   setPhaseRed(phase);
+  return true;
 }
 
 void allRed() {
