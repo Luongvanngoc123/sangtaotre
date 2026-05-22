@@ -36,7 +36,7 @@ const unsigned long IDLE_POLL_MS = 100;
 const unsigned long SENSOR_REFRESH_MS = 150;
 const unsigned int ULTRASONIC_TIMEOUT_US = 6000;
 const int ULTRASONIC_MIN_CM = 3;
-const int ULTRASONIC_DETECT_CM = 30;
+const int ULTRASONIC_DETECT_CM = 15;
 
 int sensorLevels[ROAD_COUNT] = {0, 0, 0, 0};
 int sensorDistancesCm[ROAD_COUNT] = {999, 999, 999, 999};

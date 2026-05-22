@@ -122,7 +122,7 @@ Với Arduino Uno 5V và HC-SR04 5V, chân `ECHO` có thể nối thẳng vào c
 - `D8-D11` đang dùng cho `ECHO` của HC-SR04, không cắm LED Road 3/Road 4 vào đó nữa.
 - `D12-D13` đang bỏ trống.
 - Nếu đặt cảm biến ngoài trời mưa, HC-SR04 thường không chống nước. Nên dùng `JSN-SR04T` nếu cần chống mưa tốt hơn.
-- Khoảng cách phát hiện hiện tại trong code là `3-30cm`.
+- Khoảng cách phát hiện hiện tại của bản AI là `3-30cm`; bản sensor-only đang hạ xuống `3-15cm` để tránh nhận nhầm vật nền xa là xe.
 - Khi AI hoạt động bình thường, cảm biến siêu âm dùng để kiểm chứng camera.
 - Khi AI không gửi `LEVELS` qua Serial trong 15 giây, Arduino dùng HC-SR04 làm dự phòng để chạy đèn.
 - Muốn gửi cảnh báo về server, cấu hình biến môi trường `TRAFFIC_SERVER_URL` trước khi chạy file bat AI.
@@ -186,6 +186,6 @@ Bản sensor-only không cần chạy `run_ai_obs_arduino.bat`. Nó tự đọc 
 
 - Pha 1 = Road 1 + Road 3.
 - Pha 2 = Road 2 + Road 4.
-- 1 road có xe: xanh 5 giây.
-- 2 road trong cùng pha có xe: xanh 10 giây.
+- 1 road có xe trong khoảng `3-15cm`: xanh 5 giây.
+- 2 road trong cùng pha có xe trong khoảng `3-15cm`: xanh 10 giây.
 - Nếu pha đang xanh hết xe sau tối thiểu 2 giây, đèn sẽ chuyển vàng và kết thúc sớm.
