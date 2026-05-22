@@ -1,6 +1,6 @@
 # Hệ thống đèn giao thông AI + cảm biến siêu âm
 
-Repo này chứa sketch Arduino `project_dengt.ino` để điều khiển 4 module đèn giao thông loại `R/Y/G/GND`.
+Repo này chứa sketch Arduino `project_dengt.ino` để điều khiển 2 module đèn giao thông loại `R/Y/G/GND`, đại diện cho 4 làn đường.
 
 Hệ thống có 2 nguồn dữ liệu:
 
@@ -9,14 +9,31 @@ Hệ thống có 2 nguồn dữ liệu:
 
 ## Logic pha đèn
 
-- Road 1 và Road 3 xanh cùng lúc.
-- Road 2 và Road 4 xanh cùng lúc.
-- Mức xe:
-  - `0`: không có xe
-  - `1`: ít xe, xanh 5 giây
-  - `2`: vừa, xanh 10 giây
-  - `3`: đông, xanh 15 giây
-- Nếu block zone đang có xe của pha đối diện, Arduino giữ tất cả đèn đỏ cho đến khi an toàn.
+Chỉ dùng 2 cụm đèn vật lý:
+
+- Cụm đèn pha 1 đại diện cho Road 1 và Road 3.
+- Cụm đèn pha 2 đại diện cho Road 2 và Road 4.
+
+Thuật toán vẫn nhận 4 mức xe:
+
+- `r1`: mức xe Road 1
+- `r2`: mức xe Road 2
+- `r3`: mức xe Road 3
+- `r4`: mức xe Road 4
+
+Sau đó Arduino gom pha:
+
+- Pha 1 lấy `max(r1, r3)`.
+- Pha 2 lấy `max(r2, r4)`.
+
+Mức xe:
+
+- `0`: không có xe
+- `1`: ít xe, xanh 5 giây
+- `2`: vừa, xanh 10 giây
+- `3`: đông, xanh 15 giây
+
+Nếu block zone đang có xe của pha đối diện, Arduino giữ tất cả đèn đỏ cho đến khi an toàn.
 
 ## Logic camera + cảm biến siêu âm
 
@@ -52,18 +69,18 @@ Ví dụ `sensorOnlyMask = 2` nghĩa là Road 2 cảm biến thấy xe nhưng ca
 
 Module đang dùng là loại `R/Y/G/GND`, thường đã có điện trở trên module nên có thể cắm thẳng vào Arduino.
 
-| Hướng | Chân R | Chân Y | Chân G | GND |
-| --- | --- | --- | --- | --- |
-| Road 1 | D2 | D3 | D4 | GND chung |
-| Road 2 | D5 | D6 | D7 | GND chung |
-| Road 3 | D8 | D9 | D10 | GND chung |
-| Road 4 | D11 | D12 | D13 | GND chung |
+| Cụm đèn | Đại diện | Chân R | Chân Y | Chân G | GND |
+| --- | --- | --- | --- | --- | --- |
+| Pha 1 | Road 1 + Road 3 | D2 | D3 | D4 | GND chung |
+| Pha 2 | Road 2 + Road 4 | D5 | D6 | D7 | GND chung |
 
-Tất cả chân `GND` của 4 module đèn nối về thanh GND trên breadboard, rồi nối thanh GND đó về chân `GND` trên Arduino Uno.
+Không còn cắm LED riêng cho Road 3 và Road 4. Các chân `D8`, `D9`, `D10`, `D11`, `D12`, `D13` không dùng trong sketch này.
+
+Tất cả chân `GND` của 2 module đèn nối về thanh GND trên breadboard, rồi nối thanh GND đó về chân `GND` trên Arduino Uno.
 
 ## Chân cảm biến HC-SR04
 
-Do `D2-D13` đã dùng hết cho đèn, code dùng `A0-A3` làm chân tín hiệu cho 4 cảm biến siêu âm.
+Code vẫn dùng 4 cảm biến siêu âm cho 4 Road. Mỗi cảm biến dùng 1 chân tín hiệu ở `A0-A3`.
 
 | Hướng | VCC | GND | TRIG | ECHO |
 | --- | --- | --- | --- | --- |
@@ -92,13 +109,15 @@ HC-SR04 ECHO -> điện trở 1k-4.7k -> A0
 
 1. Kéo `5V` từ Arduino vào thanh `+` của breadboard.
 2. Kéo `GND` từ Arduino vào thanh `-` của breadboard.
-3. Nếu dùng 4 breadboard riêng, nối tất cả thanh `+` với nhau và tất cả thanh `-` với nhau.
-4. Module đèn chỉ cần nối các chân `R/Y/G` về Arduino theo bảng trên, chân `GND` về GND chung.
-5. Mỗi HC-SR04 nối `VCC` về 5V chung, `GND` về GND chung, `TRIG/ECHO` về chân `A0-A3` theo đúng Road.
+3. Nếu dùng nhiều breadboard riêng, nối tất cả thanh `+` với nhau và tất cả thanh `-` với nhau.
+4. Cụm đèn pha 1 nối `R/Y/G` về `D2/D3/D4`, chân `GND` về GND chung.
+5. Cụm đèn pha 2 nối `R/Y/G` về `D5/D6/D7`, chân `GND` về GND chung.
+6. Mỗi HC-SR04 nối `VCC` về 5V chung, `GND` về GND chung, `TRIG/ECHO` về chân `A0-A3` theo đúng Road.
 
 ## Lưu ý khi lắp thực tế
 
 - Không dùng `D0/D1` vì 2 chân đó cần cho USB Serial với AI.
+- `D8-D13` đang được bỏ trống, không cắm LED Road 3/Road 4 vào đó nữa.
 - Nếu đặt cảm biến ngoài trời mưa, HC-SR04 thường không chống nước. Nên dùng `JSN-SR04T` nếu cần chống mưa tốt hơn.
 - Khoảng cách phát hiện hiện tại trong code là `3-30cm`.
 - Khi AI hoạt động bình thường, cảm biến siêu âm dùng để kiểm chứng camera.

@@ -1,10 +1,12 @@
-// AI traffic light controller for 4 traffic-light modules.
+// AI traffic light controller for 2 physical traffic-light modules and 4 roads.
 //
-// Wiring:
-// Road 1: D2  -> R, D3  -> Y, D4  -> G
-// Road 2: D5  -> R, D6  -> Y, D7  -> G
-// Road 3: D8  -> R, D9  -> Y, D10 -> G
-// Road 4: D11 -> R, D12 -> Y, D13 -> G
+// Physical light wiring:
+// Phase 1 light controls Road 1 + Road 3:
+//   D2 -> R, D3 -> Y, D4 -> G
+// Phase 2 light controls Road 2 + Road 4:
+//   D5 -> R, D6 -> Y, D7 -> G
+//
+// D8-D13 are unused by this sketch.
 //
 // HC-SR04 sensors, using one Arduino pin per sensor:
 // Road 1 sensor signal: A0
@@ -34,10 +36,14 @@
 //   3 = high density   -> green 15s
 
 const byte ROAD_COUNT = 4;
+const byte PHASE_COUNT = 2;
 
-const byte R_PINS[ROAD_COUNT] = {2, 5, 8, 11};
-const byte Y_PINS[ROAD_COUNT] = {3, 6, 9, 12};
-const byte G_PINS[ROAD_COUNT] = {4, 7, 10, 13};
+const byte PHASE1 = 0;
+const byte PHASE2 = 1;
+
+const byte R_PINS[PHASE_COUNT] = {2, 5};
+const byte Y_PINS[PHASE_COUNT] = {3, 6};
+const byte G_PINS[PHASE_COUNT] = {4, 7};
 const byte ULTRASONIC_PINS[ROAD_COUNT] = {A0, A1, A2, A3};
 
 const unsigned long LOW_GREEN_MS = 5000;
@@ -71,17 +77,21 @@ byte serialIndex = 0;
 void setup() {
   Serial.begin(115200);
 
+  for (byte phase = 0; phase < PHASE_COUNT; phase++) {
+    pinMode(R_PINS[phase], OUTPUT);
+    pinMode(Y_PINS[phase], OUTPUT);
+    pinMode(G_PINS[phase], OUTPUT);
+  }
+
   for (byte road = 0; road < ROAD_COUNT; road++) {
-    pinMode(R_PINS[road], OUTPUT);
-    pinMode(Y_PINS[road], OUTPUT);
-    pinMode(G_PINS[road], OUTPUT);
     pinMode(ULTRASONIC_PINS[road], INPUT);
   }
 
   allRed();
   Serial.println("READY");
+  Serial.println("Lights: phase1=D2,D3,D4 phase2=D5,D6,D7");
   Serial.println("Send: LEVELS,0,1,2,3");
-  Serial.println("Ultrasonic fallback: A0,A1,A2,A3");
+  Serial.println("Ultrasonic sensors: A0,A1,A2,A3");
 }
 
 void loop() {
@@ -98,17 +108,17 @@ void loop() {
     copySensorLevelsToRoadLevels();
   }
 
-  int pair13 = max(roadLevels[0], roadLevels[2]);
-  int pair24 = max(roadLevels[1], roadLevels[3]);
+  int phase1Level = max(roadLevels[0], roadLevels[2]);
+  int phase2Level = max(roadLevels[1], roadLevels[3]);
 
-  if (pair13 == 0 && pair24 == 0) {
+  if (phase1Level == 0 && phase2Level == 0) {
     allRed();
     waitWithSerial(IDLE_POLL_MS);
     return;
   }
 
-  runPairIfNeeded(0, 2, pair13, 1);
-  runPairIfNeeded(1, 3, pair24, 2);
+  runPhaseIfNeeded(PHASE1, phase1Level, 1);
+  runPhaseIfNeeded(PHASE2, phase2Level, 2);
 }
 
 void readSerialCommands() {
@@ -364,70 +374,65 @@ unsigned long getGreenTimeMs(int level) {
   }
 }
 
-void runPairIfNeeded(byte roadA, byte roadB, int level, byte phase) {
+void runPhaseIfNeeded(byte phase, int level, byte phaseCode) {
   if (level <= 0) {
     return;
   }
 
-  waitUntilPhaseAllowed(phase);
+  waitUntilPhaseAllowed(phaseCode);
 
-  setPairGreen(roadA, roadB);
+  setPhaseGreen(phase);
   if (!waitWithSerial(getGreenTimeMs(level))) {
     return;
   }
 
-  setPairYellow(roadA, roadB);
+  setPhaseYellow(phase);
   if (!waitWithSerial(YELLOW_MS)) {
     return;
   }
 
-  setRoadRed(roadA);
-  setRoadRed(roadB);
+  setPhaseRed(phase);
 }
 
 void allRed() {
-  for (byte road = 0; road < ROAD_COUNT; road++) {
-    setRoadRed(road);
+  for (byte phase = 0; phase < PHASE_COUNT; phase++) {
+    setPhaseRed(phase);
   }
 }
 
-void setRoadRed(byte road) {
-  digitalWrite(R_PINS[road], HIGH);
-  digitalWrite(Y_PINS[road], LOW);
-  digitalWrite(G_PINS[road], LOW);
+void setPhaseRed(byte phase) {
+  digitalWrite(R_PINS[phase], HIGH);
+  digitalWrite(Y_PINS[phase], LOW);
+  digitalWrite(G_PINS[phase], LOW);
 }
 
-void setPairGreen(byte roadA, byte roadB) {
+void setPhaseGreen(byte phase) {
   allRed();
-  digitalWrite(R_PINS[roadA], LOW);
-  digitalWrite(G_PINS[roadA], HIGH);
-  digitalWrite(R_PINS[roadB], LOW);
-  digitalWrite(G_PINS[roadB], HIGH);
+  digitalWrite(R_PINS[phase], LOW);
+  digitalWrite(G_PINS[phase], HIGH);
 }
 
-void setPairYellow(byte roadA, byte roadB) {
-  digitalWrite(G_PINS[roadA], LOW);
-  digitalWrite(G_PINS[roadB], LOW);
-  digitalWrite(Y_PINS[roadA], HIGH);
-  digitalWrite(Y_PINS[roadB], HIGH);
+void setPhaseYellow(byte phase) {
+  digitalWrite(G_PINS[phase], LOW);
+  digitalWrite(Y_PINS[phase], HIGH);
 }
 
 bool blockInfoFresh() {
   return lastBlockedUpdateMs > 0 && millis() - lastBlockedUpdateMs <= BLOCKED_TIMEOUT_MS;
 }
 
-bool zoneBlocksPhase(byte phase) {
+bool zoneBlocksPhase(byte phaseCode) {
   if (!blockInfoFresh() || blockedOwnerPhase == 0) {
     return false;
   }
   if (blockedOwnerPhase == 3) {
     return true;
   }
-  return blockedOwnerPhase != phase;
+  return blockedOwnerPhase != phaseCode;
 }
 
-void waitUntilPhaseAllowed(byte phase) {
-  while (zoneBlocksPhase(phase)) {
+void waitUntilPhaseAllowed(byte phaseCode) {
+  while (zoneBlocksPhase(phaseCode)) {
     allRed();
     waitWithSerial(IDLE_POLL_MS);
   }
