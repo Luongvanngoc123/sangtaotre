@@ -2,6 +2,11 @@
 
 Repo này chứa sketch Arduino `project_dengt.ino` để điều khiển 2 module đèn giao thông loại `R/Y/G/GND`, đại diện cho 4 làn đường.
 
+Có 2 sketch:
+
+- `project_dengt.ino`: bản đang dùng AI, hiện tạm tắt cảm biến.
+- `project_dengt_sensor_only.ino`: bản chỉ dùng HC-SR04, không cần AI/Python.
+
 Hệ thống có 2 nguồn dữ liệu:
 
 - AI gửi dữ liệu qua Serial: `LEVELS,r1,r2,r3,r4` và `BLOCKED,...`.
@@ -164,3 +169,23 @@ arduino-cli upload -p COM6 --fqbn arduino:avr:uno "$tmp"
 ```
 
 Đổi `COM6` thành cổng COM thật của Arduino nếu máy tính nhận cổng khác.
+
+## Upload bản sensor-only
+
+Nếu muốn chạy chỉ bằng cảm biến, dùng sketch `project_dengt_sensor_only.ino`.
+
+```powershell
+$tmp = "$env:TEMP\project_dengt_sensor_only"
+New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+Copy-Item .\project_dengt_sensor_only.ino "$tmp\project_dengt_sensor_only.ino" -Force
+arduino-cli compile --fqbn arduino:avr:uno "$tmp"
+arduino-cli upload -p COM6 --fqbn arduino:avr:uno "$tmp"
+```
+
+Bản sensor-only không cần chạy `run_ai_obs_arduino.bat`. Nó tự đọc 4 HC-SR04:
+
+- Pha 1 = Road 1 + Road 3.
+- Pha 2 = Road 2 + Road 4.
+- 1 road có xe: xanh 5 giây.
+- 2 road trong cùng pha có xe: xanh 10 giây.
+- Nếu pha đang xanh hết xe sau tối thiểu 2 giây, đèn sẽ chuyển vàng và kết thúc sớm.
