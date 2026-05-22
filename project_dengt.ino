@@ -44,6 +44,7 @@ const byte Y_PINS[PHASE_COUNT] = {3, 6};
 const byte G_PINS[PHASE_COUNT] = {4, 7};
 const byte ULTRASONIC_TRIG_PINS[ROAD_COUNT] = {A0, A1, A2, A3};
 const byte ULTRASONIC_ECHO_PINS[ROAD_COUNT] = {8, 9, 10, 11};
+const bool ULTRASONIC_ENABLED = false;
 
 const unsigned long LOW_GREEN_MS = 5000;
 const unsigned long MEDIUM_GREEN_MS = 10000;
@@ -84,31 +85,35 @@ void setup() {
     pinMode(G_PINS[phase], OUTPUT);
   }
 
-  for (byte road = 0; road < ROAD_COUNT; road++) {
-    pinMode(ULTRASONIC_TRIG_PINS[road], OUTPUT);
-    pinMode(ULTRASONIC_ECHO_PINS[road], INPUT);
-    digitalWrite(ULTRASONIC_TRIG_PINS[road], LOW);
+  if (ULTRASONIC_ENABLED) {
+    for (byte road = 0; road < ROAD_COUNT; road++) {
+      pinMode(ULTRASONIC_TRIG_PINS[road], OUTPUT);
+      pinMode(ULTRASONIC_ECHO_PINS[road], INPUT);
+      digitalWrite(ULTRASONIC_TRIG_PINS[road], LOW);
+    }
   }
 
   allRed();
   Serial.println("READY");
   Serial.println("Lights: phase1=D2,D3,D4 phase2=D5,D6,D7");
   Serial.println("Send: LEVELS,0,1,2,3");
-  Serial.println("Ultrasonic TRIG: A0,A1,A2,A3 ECHO: D8,D9,D10,D11");
+  Serial.println("Ultrasonic disabled. AI-only mode.");
 }
 
 void loop() {
   readSerialCommands();
-  refreshUltrasonicSensors();
 
   if (aiLevelsFresh()) {
-    if (crossCheckNeedsAllRed()) {
+    if (ULTRASONIC_ENABLED && crossCheckNeedsAllRed()) {
       allRed();
       waitWithSerial(IDLE_POLL_MS);
       return;
     }
   } else {
-    copySensorLevelsToRoadLevels();
+    clearRoadLevels();
+    allRed();
+    waitWithSerial(IDLE_POLL_MS);
+    return;
   }
 
   int phase1Level = max(roadLevels[0], roadLevels[2]);
@@ -167,6 +172,10 @@ void handleSerialCommand(char *command) {
   }
 
   if (equalsIgnoreCase(token, "SENSORS") || equalsIgnoreCase(token, "HEALTH")) {
+    if (!ULTRASONIC_ENABLED) {
+      Serial.println("SENSORS_DISABLED,AI_ONLY");
+      return;
+    }
     forceRefreshUltrasonicSensors();
     printSensorHealth();
     return;
@@ -275,6 +284,10 @@ bool aiLevelsFresh() {
 }
 
 void refreshUltrasonicSensors() {
+  if (!ULTRASONIC_ENABLED) {
+    return;
+  }
+
   unsigned long now = millis();
   if (lastUltrasonicReadMs > 0 && now - lastUltrasonicReadMs < ULTRASONIC_REFRESH_MS) {
     return;
@@ -508,8 +521,10 @@ bool waitWithSerial(unsigned long durationMs) {
   unsigned long startedAt = millis();
   while (millis() - startedAt < durationMs) {
     readSerialCommands();
-    refreshUltrasonicSensors();
-    if (aiLevelsFresh() && crossCheckNeedsAllRed()) {
+    if (ULTRASONIC_ENABLED) {
+      refreshUltrasonicSensors();
+    }
+    if (ULTRASONIC_ENABLED && aiLevelsFresh() && crossCheckNeedsAllRed()) {
       allRed();
       return false;
     }
