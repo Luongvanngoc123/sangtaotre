@@ -34,13 +34,13 @@ Cell này sẽ tự tìm file zip trong toàn bộ `MyDrive`, kể cả nằm tr
 ```python
 from pathlib import Path
 
-filename = "Find car and xe uu tien.v1-continuous-improvement-2026-05-22.yolov8.zip"
+DATASET_ZIP_NAME = "Find car and xe uu tien.v1-continuous-improvement-2026-05-22.yolov8.zip"
 drive_root = Path("/content/drive/MyDrive")
 
-matches = list(drive_root.rglob(filename))
+matches = list(drive_root.rglob(DATASET_ZIP_NAME))
 
 if not matches:
-    raise FileNotFoundError(f"Không tìm thấy file: {filename}")
+    raise FileNotFoundError(f"Không tìm thấy file: {DATASET_ZIP_NAME}")
 
 zip_path = str(matches[0])
 print("Đã tìm thấy:", zip_path)
@@ -58,7 +58,7 @@ out_dir  = thư mục để giải nén dataset ra
 Không được đặt `out_dir` trỏ vào file `.zip`. Nếu đặt như dưới đây là sai:
 
 ```python
-out_dir = Path("/content/drive/MyDrive/Find car and xe uu tien.v1-continuous-improvement-2026-05-22.yolov8.zip")
+out_dir = Path(zip_path)
 ```
 
 Cell đúng là:
