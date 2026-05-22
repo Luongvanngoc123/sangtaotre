@@ -2,10 +2,11 @@
 
 Repo này chứa sketch Arduino `project_dengt.ino` để điều khiển 2 module đèn giao thông loại `R/Y/G/GND`, đại diện cho 4 làn đường.
 
-Có 2 sketch:
+Có 3 sketch:
 
 - `project_dengt.ino`: bản đang dùng AI, hiện tạm tắt cảm biến.
 - `project_dengt_sensor_only.ino`: bản chỉ dùng HC-SR04, không cần AI/Python.
+- `project_dengt_ai_sensor.ino`: bản kết hợp AI + HC-SR04.
 
 Hệ thống có 2 nguồn dữ liệu:
 
@@ -190,3 +191,23 @@ Bản sensor-only không cần chạy `run_ai_obs_arduino.bat`. Nó tự đọc 
 - 2 road trong cùng pha có xe trong khoảng `3-15cm`: xanh 10 giây.
 - Nếu pha đang xanh hết xe sau tối thiểu 2 giây và giữ trạng thái hết xe trong 1 giây, đèn sẽ chuyển vàng và kết thúc sớm.
 - Nếu pha hiện tại vẫn còn xe và pha đối diện không có xe, đèn sẽ giữ xanh tiếp, không nhảy đỏ rồi xanh lại.
+
+## Upload bản AI + cảm biến
+
+Nếu muốn chạy kết hợp AI và HC-SR04, dùng sketch `project_dengt_ai_sensor.ino`.
+
+```powershell
+$tmp = "$env:TEMP\project_dengt_ai_sensor"
+New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+Copy-Item .\project_dengt_ai_sensor.ino "$tmp\project_dengt_ai_sensor.ino" -Force
+arduino-cli compile --fqbn arduino:avr:uno "$tmp"
+arduino-cli upload -p COM6 --fqbn arduino:avr:uno "$tmp"
+```
+
+Bản AI + cảm biến hoạt động như sau:
+
+- Khi AI còn gửi `LEVELS`, Arduino chạy theo AI.
+- HC-SR04 luôn được đọc để kiểm chứng camera.
+- Nếu camera thấy xe nhưng cảm biến không thấy, Arduino bật tất cả đèn đỏ và gửi `ALERT,CAM_THAY_CAM_BIEN_KHONG,...`.
+- Nếu camera không thấy xe nhưng cảm biến thấy, Arduino gửi `ALERT,CAM_KHONG_THAY_CAM_BIEN_THAY,...`.
+- Nếu AI mất tín hiệu quá 15 giây, Arduino tự chuyển sang điều khiển bằng cảm biến.
