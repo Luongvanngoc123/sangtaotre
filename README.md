@@ -74,25 +74,22 @@ Module đang dùng là loại `R/Y/G/GND`, thường đã có điện trở trê
 | Pha 1 | Road 1 + Road 3 | D2 | D3 | D4 | GND chung |
 | Pha 2 | Road 2 + Road 4 | D5 | D6 | D7 | GND chung |
 
-Không còn cắm LED riêng cho Road 3 và Road 4. Các chân `D8`, `D9`, `D10`, `D11`, `D12`, `D13` không dùng trong sketch này.
+Không còn cắm LED riêng cho Road 3 và Road 4. Các chân `D8`, `D9`, `D10`, `D11` chuyển sang dùng cho chân `ECHO` của cảm biến siêu âm. Các chân `D12`, `D13` không dùng trong sketch này.
 
 Tất cả chân `GND` của 2 module đèn nối về thanh GND trên breadboard, rồi nối thanh GND đó về chân `GND` trên Arduino Uno.
 
 ## Chân cảm biến HC-SR04
 
-Code vẫn dùng 4 cảm biến siêu âm cho 4 Road. Mỗi cảm biến dùng 1 chân tín hiệu ở `A0-A3`.
+Code vẫn dùng 4 cảm biến siêu âm cho 4 Road. Mỗi cảm biến dùng 2 chân riêng: một chân `TRIG` và một chân `ECHO`.
 
 | Hướng | VCC | GND | TRIG | ECHO |
 | --- | --- | --- | --- | --- |
-| Road 1 | 5V chung | GND chung | A0 | A0 qua điện trở 1k-4.7k |
-| Road 2 | 5V chung | GND chung | A1 | A1 qua điện trở 1k-4.7k |
-| Road 3 | 5V chung | GND chung | A2 | A2 qua điện trở 1k-4.7k |
-| Road 4 | 5V chung | GND chung | A3 | A3 qua điện trở 1k-4.7k |
+| Road 1 | 5V chung | GND chung | A0 | D8 |
+| Road 2 | 5V chung | GND chung | A1 | D9 |
+| Road 3 | 5V chung | GND chung | A2 | D10 |
+| Road 4 | 5V chung | GND chung | A3 | D11 |
 
-Mỗi cảm biến HC-SR04 dùng chung một chân tín hiệu:
-
-- `TRIG` nối trực tiếp vào chân `A0/A1/A2/A3`.
-- `ECHO` nối vào cùng chân đó nhưng nên đi qua điện trở `1k-4.7k`.
+Không nối chung `TRIG` và `ECHO` nữa. Cách 2 chân riêng ổn định hơn cho HC-SR04.
 
 Ví dụ Road 1:
 
@@ -100,10 +97,10 @@ Ví dụ Road 1:
 HC-SR04 VCC  -> 5V
 HC-SR04 GND  -> GND
 HC-SR04 TRIG -> A0
-HC-SR04 ECHO -> điện trở 1k-4.7k -> A0
+HC-SR04 ECHO -> D8
 ```
 
-Điện trở ở dây `ECHO` không phải để làm sáng LED. Nó dùng để bảo vệ chân Arduino vì `TRIG` và `ECHO` đang dùng chung một chân tín hiệu.
+Với Arduino Uno 5V và HC-SR04 5V, chân `ECHO` có thể nối thẳng vào chân digital của Arduino.
 
 ## Cách nối breadboard
 
@@ -112,12 +109,13 @@ HC-SR04 ECHO -> điện trở 1k-4.7k -> A0
 3. Nếu dùng nhiều breadboard riêng, nối tất cả thanh `+` với nhau và tất cả thanh `-` với nhau.
 4. Cụm đèn pha 1 nối `R/Y/G` về `D2/D3/D4`, chân `GND` về GND chung.
 5. Cụm đèn pha 2 nối `R/Y/G` về `D5/D6/D7`, chân `GND` về GND chung.
-6. Mỗi HC-SR04 nối `VCC` về 5V chung, `GND` về GND chung, `TRIG/ECHO` về chân `A0-A3` theo đúng Road.
+6. Mỗi HC-SR04 nối `VCC` về 5V chung, `GND` về GND chung, `TRIG` về `A0-A3`, `ECHO` về `D8-D11` theo đúng Road.
 
 ## Lưu ý khi lắp thực tế
 
 - Không dùng `D0/D1` vì 2 chân đó cần cho USB Serial với AI.
-- `D8-D13` đang được bỏ trống, không cắm LED Road 3/Road 4 vào đó nữa.
+- `D8-D11` đang dùng cho `ECHO` của HC-SR04, không cắm LED Road 3/Road 4 vào đó nữa.
+- `D12-D13` đang bỏ trống.
 - Nếu đặt cảm biến ngoài trời mưa, HC-SR04 thường không chống nước. Nên dùng `JSN-SR04T` nếu cần chống mưa tốt hơn.
 - Khoảng cách phát hiện hiện tại trong code là `3-30cm`.
 - Khi AI hoạt động bình thường, cảm biến siêu âm dùng để kiểm chứng camera.

@@ -6,16 +6,13 @@
 // Phase 2 light controls Road 2 + Road 4:
 //   D5 -> R, D6 -> Y, D7 -> G
 //
-// D8-D13 are unused by this sketch.
+// D12-D13 are unused by this sketch.
 //
-// HC-SR04 sensors, using one Arduino pin per sensor:
-// Road 1 sensor signal: A0
-// Road 2 sensor signal: A1
-// Road 3 sensor signal: A2
-// Road 4 sensor signal: A3
-//
-// Connect TRIG and ECHO to the same signal line.
-// Prefer putting a 1k-4.7k resistor between ECHO and that signal line.
+// HC-SR04 sensors:
+// Road 1: TRIG A0, ECHO D8
+// Road 2: TRIG A1, ECHO D9
+// Road 3: TRIG A2, ECHO D10
+// Road 4: TRIG A3, ECHO D11
 //
 // Cross-check logic while AI is online:
 //   Camera sees car, sensor does not -> all red and ALERT,CAM_THAY_CAM_BIEN_KHONG,...
@@ -44,7 +41,8 @@ const byte PHASE2 = 1;
 const byte R_PINS[PHASE_COUNT] = {2, 5};
 const byte Y_PINS[PHASE_COUNT] = {3, 6};
 const byte G_PINS[PHASE_COUNT] = {4, 7};
-const byte ULTRASONIC_PINS[ROAD_COUNT] = {A0, A1, A2, A3};
+const byte ULTRASONIC_TRIG_PINS[ROAD_COUNT] = {A0, A1, A2, A3};
+const byte ULTRASONIC_ECHO_PINS[ROAD_COUNT] = {8, 9, 10, 11};
 
 const unsigned long LOW_GREEN_MS = 5000;
 const unsigned long MEDIUM_GREEN_MS = 10000;
@@ -85,14 +83,16 @@ void setup() {
   }
 
   for (byte road = 0; road < ROAD_COUNT; road++) {
-    pinMode(ULTRASONIC_PINS[road], INPUT);
+    pinMode(ULTRASONIC_TRIG_PINS[road], OUTPUT);
+    pinMode(ULTRASONIC_ECHO_PINS[road], INPUT);
+    digitalWrite(ULTRASONIC_TRIG_PINS[road], LOW);
   }
 
   allRed();
   Serial.println("READY");
   Serial.println("Lights: phase1=D2,D3,D4 phase2=D5,D6,D7");
   Serial.println("Send: LEVELS,0,1,2,3");
-  Serial.println("Ultrasonic sensors: A0,A1,A2,A3");
+  Serial.println("Ultrasonic TRIG: A0,A1,A2,A3 ECHO: D8,D9,D10,D11");
 }
 
 void loop() {
@@ -272,7 +272,7 @@ void refreshUltrasonicSensors() {
 
   lastUltrasonicReadMs = now;
   for (byte road = 0; road < ROAD_COUNT; road++) {
-    int distanceCm = readOnePinUltrasonicCm(ULTRASONIC_PINS[road]);
+    int distanceCm = readUltrasonicCm(ULTRASONIC_TRIG_PINS[road], ULTRASONIC_ECHO_PINS[road]);
     sensorDistancesCm[road] = distanceCm;
     bool vehiclePresent = distanceCm >= ULTRASONIC_MIN_CM && distanceCm <= ULTRASONIC_DETECT_CM;
     sensorLevels[road] = vehiclePresent ? ULTRASONIC_PRESENT_LEVEL : 0;
@@ -290,16 +290,14 @@ void copySensorLevelsToRoadLevels() {
   }
 }
 
-int readOnePinUltrasonicCm(byte pin) {
-  pinMode(pin, OUTPUT);
-  digitalWrite(pin, LOW);
+int readUltrasonicCm(byte trigPin, byte echoPin) {
+  digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
-  digitalWrite(pin, HIGH);
+  digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
-  digitalWrite(pin, LOW);
+  digitalWrite(trigPin, LOW);
 
-  pinMode(pin, INPUT);
-  unsigned long durationUs = pulseIn(pin, HIGH, ULTRASONIC_TIMEOUT_US);
+  unsigned long durationUs = pulseIn(echoPin, HIGH, ULTRASONIC_TIMEOUT_US);
   if (durationUs == 0) {
     return 999;
   }
