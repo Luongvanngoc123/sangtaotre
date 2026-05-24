@@ -16,8 +16,6 @@ Mỗi chu kỳ đầy đủ gồm các bước:
 | 3 | Đỏ | Xanh | Cho pha B chạy |
 | 4 | Đỏ | Vàng | Cảnh báo pha B sắp dừng |
 
-Lưu ý: Trong tài liệu cũ, các bước vàng cũng được gọi là “pha”. Để tránh nhầm, tài liệu này gọi đúng hơn là `bước chuyển pha`.
-
 ## Nguyên tắc chung
 
 - AI nhận diện xe trong từng vùng Road 1, Road 2, Road 3, Road 4.
@@ -128,9 +126,9 @@ AI cần nhận diện class xe ưu tiên, ví dụ:
 
 ```text
 xe uu tien
-priority
-emergency
-ambulance
+xe cuu thuong
+xe chua chay
+xe cong vu
 ```
 
 Khi phát hiện xe ưu tiên:
@@ -140,7 +138,7 @@ Khi phát hiện xe ưu tiên:
 | Xe ưu tiên ở Road 1 hoặc Road 3 | Ưu tiên pha A |
 | Xe ưu tiên ở Road 2 hoặc Road 4 | Ưu tiên pha B |
 | Xe ưu tiên đang ở pha đang xanh | Kéo dài xanh theo mức độ xe |
-| Xe ưu tiên ở pha đang đỏ | Chuyển sang pha đó sau bước an toàn |
+| Xe ưu tiên ở pha đang đỏ | Nếu xe ưu tiên ở Road 1 hoặc Road 3 thì chuyển sang pha A; nếu xe ưu tiên ở Road 2 hoặc Road 4 thì chuyển sang pha B. Trước khi chuyển phải cho pha hiện tại qua vàng rồi đỏ để đảm bảo an toàn. |
 | Hết xe ưu tiên | Trở lại thuật toán mật độ bình thường |
 
 Quy tắc an toàn:
@@ -172,7 +170,7 @@ Hệ thống có hai nguồn dữ liệu:
 | --- | --- |
 | Camera hoạt động, cảm biến hoạt động | Dùng AI làm chính, cảm biến kiểm chứng |
 | Camera thấy xe, cảm biến không thấy | Vẫn cho AI hoạt động, gửi cảnh báo lệch dữ liệu |
-| Camera không thấy xe, cảm biến thấy xe | Dùng cảm biến bổ sung demand, gửi cảnh báo |
+| Camera không thấy xe, cảm biến thấy xe | Dùng cảm biến bổ sung demand (nhu cầu xin đèn xanh), gửi cảnh báo |
 | Camera mất tín hiệu tạm thời | Chạy bằng cảm biến |
 | Cảm biến lỗi nhưng camera còn hoạt động | Chạy bằng camera, cảnh báo cảm biến lỗi |
 | Mất cả camera và cảm biến | Chuyển chu kỳ mặc định hoặc giữ đỏ an toàn |
@@ -185,37 +183,12 @@ Hệ thống có hai nguồn dữ liệu:
 | --- | --- | --- |
 | Có xe | Có xe | Bình thường |
 | Có xe | Không có xe | Tin camera, gửi cảnh báo |
-| Không có xe | Có xe | Bổ sung demand từ cảm biến, gửi cảnh báo |
-| Không có xe | Không có xe | Không có demand |
+| Không có xe | Có xe | Bổ sung demand (nhu cầu xin đèn xanh) từ cảm biến, gửi cảnh báo |
+| Không có xe | Không có xe | Không có demand (không có nhu cầu xin đèn xanh) |
 
-Nguyên tắc đang dùng: lấy demand theo kiểu `max(AI, cảm biến)`, tức là chỉ cần một nguồn thấy xe thì làn đó vẫn được tính có xe.
+Nguyên tắc đang dùng: lấy demand (nhu cầu xin đèn xanh của từng làn) theo kiểu `max(AI, cảm biến)`, tức là chỉ cần một nguồn thấy xe thì làn đó vẫn được tính có xe.
 
-## Trường hợp 11: Lỗi vùng khoanh làn
-
-Nếu khoanh sai vùng Road 1, Road 2, Road 3, Road 4 thì AI có thể điều khiển sai pha đèn.
-
-Ví dụ:
-
-- Xe nằm ở Road 3 nhưng bị khoanh nhầm vào Road 2.
-- Khi đó AI sẽ gửi demand cho Road 2, làm pha B xanh thay vì pha A.
-
-Cách xử lý:
-
-1. Mở file chọn vùng làn.
-2. Khoanh đúng Road 1, Road 2, Road 3, Road 4 theo đèn thật.
-3. Lưu lại config.
-4. Chạy lại AI.
-
-Quy tắc mapping:
-
-| Road trong GUI | Cụm đèn thật |
-| --- | --- |
-| Road 1 | Pha A |
-| Road 2 | Pha B |
-| Road 3 | Pha A |
-| Road 4 | Pha B |
-
-## Trường hợp 12: Xe đứng yên ngoài giao lộ
+## Trường hợp 11: Xe đứng yên ngoài giao lộ
 
 Xe dừng chờ ở làn đường nhưng chưa vào Block Zone.
 
@@ -243,15 +216,3 @@ Thứ tự ưu tiên xử lý:
 8. Nếu một pha không có xe, bỏ qua hoặc rút ngắn pha đó.
 9. Nếu mất AI, chuyển sang cảm biến.
 10. Nếu mất toàn bộ dữ liệu, dùng chu kỳ mặc định hoặc giữ đỏ an toàn.
-
-## Các điểm đã bổ sung so với mô tả ban đầu
-
-- Phân biệt `pha xanh chính` và `bước vàng chuyển pha`.
-- Bổ sung logic xe đang di chuyển trong Block Zone không bị coi là kẹt.
-- Bổ sung trường hợp xe ưu tiên và quy tắc an toàn khi chuyển pha.
-- Bổ sung mất dữ liệu camera/cảm biến.
-- Bổ sung mâu thuẫn giữa AI và cảm biến.
-- Bổ sung lỗi khoanh vùng làn.
-- Bổ sung xe đứng yên ngoài giao lộ và trong giao lộ.
-- Bổ sung chế độ lưu lượng thấp/ban đêm.
-
