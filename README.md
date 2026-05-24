@@ -14,6 +14,12 @@ Hướng dẫn train model YOLO26 trên Google Colab nằm ở:
 huong_dan_train_yolo26_colab.md
 ```
 
+Tài liệu các trường hợp điều khiển đèn giao thông nằm ở:
+
+```text
+cac_truong_hop_dieu_khien_den_giao_thong.md
+```
+
 Hệ thống có 2 nguồn dữ liệu:
 
 - AI gửi dữ liệu qua Serial: `LEVELS,r1,r2,r3,r4` và `BLOCKED,...`.
